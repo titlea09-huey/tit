@@ -1,0 +1,195 @@
+-- Delta Player Lock-on with Adjustable FOV & Toggle UI
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local lockedTarget = nil
+local isLocked = false
+local fovRadius = 150 -- ขนาดเริ่มต้น
+
+-- สร้าง UI หลัก
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local ToggleUIButton = Instance.new("TextButton")
+local LockButton = Instance.new("TextButton")
+local IncFOVButton = Instance.new("TextButton")
+local DecFOVButton = Instance.new("TextButton")
+local FOVText = Instance.new("TextLabel")
+local FOVCircle = Instance.new("Frame")
+local UICorner = Instance.new("UICorner")
+
+ScreenGui.Name = "LockonGuiFull"
+ScreenGui.Parent = game:GetService("CoreGui")
+
+-- เฟรมเก็บปุ่ม
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundTransparency = 1
+MainFrame.Size = UDim2.new(1, 0, 1, 0)
+
+-- ปุ่มซ่อน/แสดง UI
+ToggleUIButton.Parent = ScreenGui
+ToggleUIButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+ToggleUIButton.BorderColor3 = Color3.fromRGB(255, 255, 255)
+ToggleUIButton.Position = UDim2.new(0, 10, 0, 10)
+ToggleUIButton.Size = UDim2.new(0, 40, 0, 30)
+ToggleUIButton.Font = Enum.Font.SourceSansBold
+ToggleUIButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleUIButton.TextSize = 14
+ToggleUIButton.Text = "UI"
+
+-- ปุ่มกดล็อก
+LockButton.Parent = MainFrame
+LockButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+LockButton.BorderColor3 = Color3.fromRGB(255, 255, 255)
+LockButton.Position = UDim2.new(0, 10, 0, 50)
+LockButton.Size = UDim2.new(0, 120, 0, 40)
+LockButton.Font = Enum.Font.SourceSansBold
+LockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+LockButton.TextSize = 16
+LockButton.Text = "LOCK: OFF"
+
+-- ปุ่มลดขนาด FOV (-)
+DecFOVButton.Parent = MainFrame
+DecFOVButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+DecFOVButton.BorderColor3 = Color3.fromRGB(255, 255, 255)
+DecFOVButton.Position = UDim2.new(0, 10, 0, 100)
+DecFOVButton.Size = UDim2.new(0, 35, 0, 30)
+DecFOVButton.Font = Enum.Font.SourceSansBold
+DecFOVButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+DecFOVButton.TextSize = 16
+DecFOVButton.Text = "-"
+
+-- แสดงขนาด FOV ปัจจุบัน
+FOVText.Parent = MainFrame
+FOVText.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+FOVText.BackgroundTransparency = 0.5
+FOVText.Position = UDim2.new(0, 47, 0, 100)
+FOVText.Size = UDim2.new(0, 46, 0, 30)
+FOVText.Font = Enum.Font.SourceSansBold
+FOVText.TextColor3 = Color3.fromRGB(255, 255, 255)
+FOVText.TextSize = 14
+FOVText.Text = tostring(fovRadius)
+
+-- ปุ่มเพิ่มขนาด FOV (+)
+IncFOVButton.Parent = MainFrame
+IncFOVButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+IncFOVButton.BorderColor3 = Color3.fromRGB(255, 255, 255)
+IncFOVButton.Position = UDim2.new(0, 95, 0, 100)
+IncFOVButton.Size = UDim2.new(0, 35, 0, 30)
+IncFOVButton.Font = Enum.Font.SourceSansBold
+IncFOVButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+IncFOVButton.TextSize = 16
+IncFOVButton.Text = "+"
+
+-- วงกลม FOV ตรงกลางจอ
+FOVCircle.Parent = MainFrame
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.BorderColor3 = Color3.fromRGB(0, 255, 0)
+FOVCircle.BorderSizePixel = 2
+FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+FOVCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+
+UICorner.CornerRadius = UDim.new(1, 0)
+UICorner.Parent = FOVCircle
+
+-- อัปเดตขนาดวงกลม
+local function updateFOVSize()
+    FOVCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+    FOVText.Text = tostring(fovRadius)
+end
+
+-- กดปุ่มเพิ่ม/ลด FOV
+IncFOVButton.MouseButton1Click:Connect(function()
+    if fovRadius < 500 then
+        fovRadius = fovRadius + 25
+        updateFOVSize()
+    end
+end)
+
+DecFOVButton.MouseButton1Click:Connect(function()
+    if fovRadius > 50 then
+        fovRadius = fovRadius - 25
+        updateFOVSize()
+    end
+end)
+
+-- เปิด/ปิด UI
+local uiVisible = true
+ToggleUIButton.MouseButton1Click:Connect(function()
+    uiVisible = not uiVisible
+    MainFrame.Visible = uiVisible
+    ToggleUIButton.TextColor3 = uiVisible and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 150)
+end)
+
+-- ฟังก์ชันหาผู้เล่นใน FOV
+local function getClosestPlayerInFOV()
+    local closestTarget = nil
+    local shortestDistance = math.huge
+    local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local rootPart = player.Character.HumanoidRootPart
+                local screenPoint, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+                
+                if onScreen then
+                    local screenPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                    local distance = (screenPos - mousePos).Magnitude
+                    
+                    if distance <= fovRadius and distance < shortestDistance then
+                        shortestDistance = distance
+                        closestTarget = rootPart
+                    end
+                end
+            end
+        end
+    end
+    return closestTarget
+end
+
+-- กดปุ่มล็อก
+LockButton.MouseButton1Click:Connect(function()
+    isLocked = not isLocked
+    if isLocked then
+        lockedTarget = getClosestPlayerInFOV()
+        if lockedTarget then
+            LockButton.Text = "LOCK: ON"
+            LockButton.TextColor3 = Color3.fromRGB(0, 255, 0)
+            FOVCircle.BorderColor3 = Color3.fromRGB(0, 255, 0)
+        else
+            isLocked = false
+            LockButton.Text = "LOCK: OFF"
+            FOVCircle.BorderColor3 = Color3.fromRGB(255, 255, 255)
+        end
+    else
+        lockedTarget = nil
+        LockButton.Text = "LOCK: OFF"
+        LockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        FOVCircle.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
+
+-- ล็อกมุมกล้อง
+RunService.RenderStepped:Connect(function()
+    if isLocked and lockedTarget and lockedTarget.Parent then
+        local humanoid = lockedTarget.Parent:FindFirstChildOfClass("Humanoid")
+        if humanoid and humanoid.Health > 0 then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, lockedTarget.Position)
+        else
+            isLocked = false
+            lockedTarget = nil
+            LockButton.Text = "LOCK: OFF"
+            LockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            FOVCircle.BorderColor3 = Color3.fromRGB(255, 255, 255)
+        end
+    end
+end)
+
+print("🔥 Full Lock-on UI Loaded!")
